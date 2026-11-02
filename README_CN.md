@@ -106,37 +106,47 @@ OXR 官方部署是三个服务：OXR 的接口和流程、vLLM（加载 OXR 的
   是近似平局。本项目各遍的逐块结果和 vLLM 第一轮完全相同的比例是 98.3%–98.8%，vLLM 另外 4 轮是 99.0%–99.2%。
 - 测试文档有版权，不随仓库发布。`scripts/parity.py` 写了请求集的格式，可以拿自己的文档复现。
 
+**生产部署实测**：公开发布的镜像跑在我们的 Kubernetes 集群上（每个 pod 一张 H200，和上面同型号），请求从另一个 pod 经
+Service 发过来。
+
+| | 结果 |
+|---|---|
+| 从 GHCR 拉镜像 | 5.41 GiB，约 8 分 20 秒 |
+| 启动：从容器启动到能接请求（全新容器，没有编译缓存） | 约 42 秒 |
+| GPU 进程占的显存 | 整卡 139.8 GiB 里占 90.3 GiB（KV 缓存 80 GiB） |
+| 按页发，16 并发 | 7.85 页/秒 |
+| 按页发，64 并发 | 约 8.6 页/秒 |
+| 3 份 PDF 整份同时发 | 5.37–6.19 页/秒 |
+| 异步接口，4 个流程进程 | 查询 40 次，40 次都查到任务 |
+
+单个 Python 压测客户端进程在 64 并发时只能压到约 4 页/秒（客户端自己先吃满 CPU），所以按页发的压力分给几个客户端进程：
+2 × 8 并发、4 × 16 并发。
+
 ## 快速开始
 
-> **很遗憾，我们不能公开发布构建好的镜像。** 镜像里带着 NVIDIA CUTLASS DSL（flash-attn 4 编译 kernel 要用）的
-> 二进制库，它的许可协议只许在本单位内部使用，可以再分发的只有其中的 Python 源文件（见
-> [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）。
->
-> 不过别慌，自己构建一个很简单，下面两种任选。
-
-**用 GitHub Actions 构建**，不用自己准备构建机：
-
-1. fork 本仓库，在 fork 的 Actions 页面启用 workflow；
-2. 手动运行「Image」这个 workflow，勾上「Push to GHCR」；ModelScope 不通时，`weights_base_url` 填
-   `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`；
-3. 镜像会推到 `ghcr.io/<你的用户名>/oxr-inference:sha-<提交号前 12 位>`。包第一次推送时默认私有，请保持私有；
-   部署的机器拉取时，用有 `read:packages` 权限的令牌登录 ghcr.io。
-
-**在本机构建**：
+构建好的镜像在 GHCR 上（`latest` 跟着 `main`；要固定某一版就用 `sha-<提交号>` 标签）：
 
 ```bash
-docker build -t oxr-inference .
-# ModelScope 不通时换 Hugging Face：
-docker build --build-arg WEIGHTS_BASE_URL=https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/ -t oxr-inference .
+docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:latest --kv-gb 80 --max-running 1024
 ```
 
-构建时会下载 OXR 源码（固定提交）和 OXR-1.0 权重（约 2.9 GB，逐个校验 sha256），权重默认从 ModelScope 下载。
+镜像里带着 NVIDIA CUTLASS DSL（flash-attn 4 编译 kernel 要用）。和 vLLM、SGLang 的公开镜像一样（它们装的是同一个包），
+它按 NVIDIA 自己的许可协议随镜像分发，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，使用前请先看 NVIDIA 的条款。
 
-**运行**：
+想自己构建的话：
 
-```bash
-docker run --gpus '"device=0"' -p 8000:8000 oxr-inference --kv-gb 80 --max-running 1024
-```
+- **用 GitHub Actions**，不用自己准备构建机：fork 本仓库，在 fork 的 Actions 页面启用 workflow，手动运行「Image」，勾上
+  「Push to GHCR」。镜像推到 `ghcr.io/<你的用户名>/oxr-inference`，包第一次推送时默认私有。ModelScope 不通时，
+  `weights_base_url` 填 `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`。
+- **在本机构建**：
+
+  ```bash
+  docker build -t oxr-inference .
+  # ModelScope 不通时换 Hugging Face：
+  docker build --build-arg WEIGHTS_BASE_URL=https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/ -t oxr-inference .
+  ```
+
+  构建时会下载 OXR 源码（固定提交）和 OXR-1.0 权重（约 2.9 GB，逐个校验 sha256），权重默认从 ModelScope 下载。
 
 启动时加载权重、按最坏情况预热、现编 kernel，日志里出现 `Application startup complete` 之后开始接请求。接口和
 OXR 官方相同：
@@ -243,5 +253,5 @@ PYTHONPATH=.:tests python -m pytest -q tests
   限制。
 
 镜像里还有 OXR 源码、OXR-1.0 权重和第三方软件，各自的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-其中 NVIDIA CUTLASS DSL（flash-attn 4 依赖）是 NVIDIA 的专有许可：只许本单位内部使用，可以再分发的只有其中的 Python
-源文件。所以我们不公开发布镜像；自己构建的镜像，也请只在本单位内部用（见[快速开始](#快速开始)）。
+其中 NVIDIA CUTLASS DSL（flash-attn 4 依赖）是 NVIDIA 的专有许可；和 vLLM、SGLang 的公开镜像一样，本项目的镜像也带着它。
+使用或再分发镜像之前，请先看 NVIDIA 的条款。

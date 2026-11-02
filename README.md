@@ -135,39 +135,50 @@ local socket (raw pixels).
 - The test documents are copyrighted and not included. `scripts/parity.py` documents the request-set format, so you
   can reproduce the comparison with your own documents.
 
+**Production deployment**: the published image on our Kubernetes cluster (one H200 per pod, same GPU model), with
+requests sent from a separate pod through the Service.
+
+| | Result |
+|---|---|
+| Pulling the image from GHCR | 5.41 GiB, about 8 min 20 s |
+| Startup, from container start to accepting requests (fresh container, no compile cache) | about 42 s |
+| GPU memory held by the GPU process | 90.3 GiB of 139.8 GiB (80 GiB KV cache) |
+| Per page, 16 concurrent | 7.85 pages/s |
+| Per page, 64 concurrent | about 8.6 pages/s |
+| 3 whole PDFs at once | 5.37–6.19 pages/s |
+| Async API with 4 pipeline processes | 40 of 40 queries found the task |
+
+A single Python load-generator process tops out around 4 pages/s at 64 concurrent requests (the client itself becomes
+CPU-bound), so per-page load was spread over several client processes: 2 × 8 and 4 × 16 concurrent requests.
+
 ## Quick start
 
-> **Unfortunately, we can't publish a prebuilt image.** The image contains the binary libraries of NVIDIA CUTLASS DSL
-> (flash-attn 4 uses it to compile kernels), whose license only allows use inside your own organization and only
-> permits redistributing its Python source files (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
->
-> Don't panic — building your own is easy. Pick either way below.
-
-**Build with GitHub Actions**, no build machine needed:
-
-1. Fork this repository and enable workflows on your fork's Actions page.
-2. Run the "Image" workflow manually with "Push to GHCR" checked. If ModelScope is unreachable, set
-   `weights_base_url` to `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`.
-3. The image is pushed to `ghcr.io/<your-username>/oxr-inference:sha-<first 12 characters of the commit>`. The package
-   is private when first pushed; please keep it private. To pull it on your servers, log in to ghcr.io with a token
-   that has `read:packages`.
-
-**Build locally**:
+Prebuilt images are on GHCR (`latest` follows `main`; `sha-<commit>` tags pin a build):
 
 ```bash
-docker build -t oxr-inference .
-# If ModelScope is unreachable, download the weights from Hugging Face instead:
-docker build --build-arg WEIGHTS_BASE_URL=https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/ -t oxr-inference .
+docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:latest --kv-gb 80 --max-running 1024
 ```
 
-The build downloads the OXR source (pinned commit) and the OXR-1.0 weights (about 2.9 GB, each file checked against
-its sha256); the weights come from ModelScope by default.
+The image contains NVIDIA CUTLASS DSL, which flash-attn 4 uses to compile kernels. Like the public images of vLLM and
+SGLang, which install the same package, ours ships it under NVIDIA's own license; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and review NVIDIA's terms before use.
 
-**Run**:
+To build your own image instead:
 
-```bash
-docker run --gpus '"device=0"' -p 8000:8000 oxr-inference --kv-gb 80 --max-running 1024
-```
+- **With GitHub Actions**, no build machine needed: fork this repository, enable workflows on your fork's Actions page,
+  and run the "Image" workflow with "Push to GHCR" checked. The image is pushed to
+  `ghcr.io/<your-username>/oxr-inference`; the package is private when first pushed. If ModelScope is unreachable, set
+  `weights_base_url` to `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`.
+- **Locally**:
+
+  ```bash
+  docker build -t oxr-inference .
+  # If ModelScope is unreachable, download the weights from Hugging Face instead:
+  docker build --build-arg WEIGHTS_BASE_URL=https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/ -t oxr-inference .
+  ```
+
+  The build downloads the OXR source (pinned commit) and the OXR-1.0 weights (about 2.9 GB, each file checked against
+  its sha256); the weights come from ModelScope by default.
 
 At startup the server loads the weights, warms up for the worst case and compiles kernels; it accepts requests once
 the log shows `Application startup complete`. The API is the same as OXR's:
@@ -282,6 +293,5 @@ Yechi Yang). The key points of the additional terms (the original text prevails)
 
 The image also contains the OXR source, the OXR-1.0 weights and third-party software, each under its own license; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). NVIDIA CUTLASS DSL (a flash-attn 4 dependency) is under a
-proprietary NVIDIA license that only allows use inside your own organization and only permits redistributing its
-Python source files. That's why we don't publish the image; please also keep images you build yourself inside your
-organization (see [Quick start](#quick-start)).
+proprietary NVIDIA license; like the public images of vLLM and SGLang, ours includes it. Review NVIDIA's terms before
+using or redistributing the image.

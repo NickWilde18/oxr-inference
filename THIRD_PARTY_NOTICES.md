@@ -22,12 +22,13 @@ the image's `/licenses` and in the files each component ships.
   identify SoMark OXR in its user interface or public documentation; you may not offer third parties a hosted API
   service that competes with SoMark's (document parsing, OCR, layout analysis, content extraction), while use solely
   within your own organization isn't restricted by this term. The original text in [LICENSE](LICENSE) prevails.
-- **NVIDIA CUTLASS DSL**: its license only allows installing and using it; only the Python source files in the package
-  may be redistributed, and only as part of your application (Section 1.1(d)); no other part may be distributed
-  (Section 2.2); employees and contractors of your organization — and, for educational institutions, enrolled
-  students — may use it from your secure network (Section 3). The image contains its binary libraries (about 460 MB of
-  `.so` files in `nvidia-cutlass-dsl-libs-*`), so this project **does not publish prebuilt images**; please keep
-  images you build following the README inside your organization, in a private registry.
+- **NVIDIA CUTLASS DSL**: its license (the NVIDIA Software License Agreement shipped with the package) allows
+  installing and using it; it permits redistributing only the Python source files in the package, as part of an
+  application (Section 1.1(d)), and no other part (Section 2.2); employees and contractors of your organization — and,
+  for educational institutions, enrolled students — may use it from your secure network (Section 3). The image
+  contains its binary libraries (about 460 MB of `.so` files in `nvidia-cutlass-dsl-libs-*`). The public images of
+  vLLM and SGLang install the same package, and so does ours; review NVIDIA's terms before using or redistributing the
+  image.
 - **opencv-python** bundles FFmpeg, Qt and other libraries, see `site-packages/cv2/LICENSE-3RD-PARTY.txt`;
   **pypdfium2** bundles PDFium and its dependencies, with the licenses under `licenses/` in its dist-info.
 - The tokenizers package ships no license text (its metadata says Apache 2.0); the Apache 2.0 terms are in this

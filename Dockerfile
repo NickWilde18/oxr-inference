@@ -15,7 +15,7 @@
 # ≥ 580.65.06；按 CUDA 小版本兼容，13.x 的程序在 ≥ 580 的驱动上能跑。
 #
 # 许可证：本仓库和 OXR 都是 Apache 2.0 加 OXR 附加条款。镜像里各部分的许可证原文都在 /licenses，说明见
-# THIRD_PARTY_NOTICES.md；其中 NVIDIA CUTLASS DSL（flash-attn 4 依赖）是 NVIDIA 的专有许可，所以不公开发布镜像。
+# THIRD_PARTY_NOTICES.md；其中 NVIDIA CUTLASS DSL（flash-attn 4 依赖）是 NVIDIA 的专有许可，和 vLLM、SGLang 的公开镜像一样带在镜像里。
 
 ARG PYTHON_IMAGE=python:3.12-slim-bookworm
 

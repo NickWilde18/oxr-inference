@@ -1,6 +1,6 @@
 # 构建镜像，推到运行这个 workflow 的仓库对应的 GHCR（ghcr.io/<所有者>/<仓库名>，fork 里就是 fork 主人自己的）。
-# 包第一次推送时默认私有，请保持私有：镜像里有 NVIDIA CUTLASS DSL 的二进制库，它的许可协议只许本单位内部使用
-# （见 THIRD_PARTY_NOTICES.md）。
+# 标签：sha-<提交号前 12 位>；打 v* 标签时加上版本号，从 main 手动构建时加上 latest。包第一次推送时默认私有，公开与否
+# 在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见 THIRD_PARTY_NOTICES.md。
 #
 # 打 v* 标签时构建并推送；手动触发时可以选只构建不推（用来看构建机磁盘够不够）。
 # GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，所以构建前先删掉
@@ -53,11 +53,13 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"  # GHCR 的名字要小写
           echo "IMAGE=${image}" >> "$GITHUB_ENV"
+          tags="${image}:sha-${GITHUB_SHA::12}"
           if [ "${{ github.event_name }}" = push ]; then
-            echo "tags=${image}:${GITHUB_REF_NAME},${image}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tags=${image}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+            tags="${tags},${image}:${GITHUB_REF_NAME}"
+          elif [ "${GITHUB_REF_NAME}" = main ]; then
+            tags="${tags},${image}:latest"
           fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@v6
         with:
