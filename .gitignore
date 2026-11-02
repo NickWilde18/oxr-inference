@@ -1,0 +1,43 @@
+# 权重、模型文件：一律不进仓库（镜像构建时另外下载或拷进去）
+*.safetensors
+*.pth
+*.pt
+*.bin
+*.onnx
+*.gguf
+models/
+weights/
+checkpoints/
+
+# 凭据与本地配置
+.env
+.env.*
+*.key
+*.pem
+kubeconfig*
+*.token
+token.txt
+secrets/
+
+# 实验产物与大文件
+out/
+bench-out/
+*.jsonl
+*.log
+*.prof
+*.trace.json
+*.png
+*.jpg
+*.jpeg
+*.pdf
+!docs/**/*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/

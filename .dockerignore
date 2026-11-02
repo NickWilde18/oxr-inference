@@ -1,0 +1,7 @@
+.venv/
+.git/
+tests/
+scripts/
+**/__pycache__/
+*.json
+!docker/weights_manifest.json

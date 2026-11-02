@@ -1,0 +1,22 @@
+oxr-inference
+Copyright (c) 2026 Yechi Yang
+
+This project is a derivative work of OXR by SoMark Team.
+Official source: https://github.com/SoMarkAI/OXR
+OXR-1.0 model: https://huggingface.co/SoMarkAI/OXR-1.0 , https://modelscope.cn/models/SoMark/OXR-1.0
+
+The recognition runtime in oxr_runtime/ reimplements the OXR-1.0 model following
+its reference implementation (modeling_oxr.py and the vLLM plugin published with
+the OXR-1.0 model). At run time it loads the OXR-1.0 weights and uses the OXR
+source tree (the oxr package and services/layout_analyze). Neither the OXR source
+tree nor the OXR-1.0 weights are included in this repository.
+
+Container images built from this repository's Dockerfile also contain the OXR
+source tree, the OXR-1.0 weights and third-party software under their own
+licenses; see THIRD_PARTY_NOTICES.md and /licenses in the image.
+
+本项目衍生自 SoMark Team 的 OXR。oxr_runtime/ 里的识别运行时按 OXR-1.0 的参考实现
+（随 OXR-1.0 模型发布的 modeling_oxr.py 和 vLLM 插件）重写，运行时加载 OXR-1.0 权重、
+使用 OXR 源码（oxr 包和 services/layout_analyze）；本仓库不包含 OXR 源码和权重。
+用本仓库的 Dockerfile 构建的镜像另外包含 OXR 源码、OXR-1.0 权重和各自许可的第三方软件，
+见 THIRD_PARTY_NOTICES.md 和镜像里的 /licenses。
