@@ -2,7 +2,7 @@
 # 只为 v* 标签构建：推标签时自动跑，也可以在某个 v* 标签上手动触发（发版构建失败、要换权重来源时重跑）。镜像标签是
 # 版本号和 latest（latest 跟着最新的正式版本；在旧标签上重跑会把 latest 指回那个版本）。包第一次推送
 # 时默认私有，公开与否在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见 THIRD_PARTY_NOTICES.md。构建缓存
-# 放在同一个包的 buildcache 标签。
+# 放在单独的包 <仓库名>-cache，镜像包里只有版本号和 latest。
 #
 # GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，构建前先删掉构建机预装、这里用不到
 # 的大件。
@@ -67,5 +67,5 @@ jobs:
           provenance: false
           # mode=max 连中间层（下载权重那一阶段）一起存。没改到的层直接复用，推出去的镜像和上一版共用这些层，
           # 节点升级时只拉变了的几层。fork 里还没有缓存时只是读不到，构建照常。
-          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache
-          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache,mode=max
+          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}-cache:buildcache
+          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}-cache:buildcache,mode=max
