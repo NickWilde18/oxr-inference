@@ -124,10 +124,10 @@ Service 发过来。
 
 ## 快速开始
 
-构建好的镜像在 GHCR 上（`latest` 跟着 `main`；要固定某一版就用 `sha-<提交号>` 标签）：
+构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 跟着 `main`，`sha-<提交号>` 标签对应某一次构建。
 
 ```bash
-docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:latest --kv-gb 80 --max-running 1024
+docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024
 ```
 
 镜像里带着 NVIDIA CUTLASS DSL（flash-attn 4 编译 kernel 要用）。和 vLLM、SGLang 的公开镜像一样（它们装的是同一个包），
