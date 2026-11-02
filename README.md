@@ -153,8 +153,8 @@ CPU-bound), so per-page load was spread over several client processes: 2 × 8 an
 
 ## Quick start
 
-Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, `latest` follows `main`, and `sha-<commit>`
-tags pin a single build.
+Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, `latest` is the newest release, and
+`sha-<commit>` tags pin a single build.
 
 ```bash
 docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024

@@ -124,7 +124,7 @@ Service 发过来。
 
 ## 快速开始
 
-构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 跟着 `main`，`sha-<提交号>` 标签对应某一次构建。
+构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 是最新的正式版本，`sha-<提交号>` 标签对应某一次构建。
 
 ```bash
 docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024

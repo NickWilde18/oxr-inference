@@ -1,7 +1,7 @@
 # 构建镜像，推到运行这个 workflow 的仓库对应的 GHCR（ghcr.io/<所有者>/<仓库名>，fork 里就是 fork 主人自己的）。
-# 打 v* 标签时自动构建，也可以手动触发。标签：sha-<提交号前 12 位>；打 v* 标签时加上版本号，从 main 手动构建时加上
-# latest。包第一次推送时默认私有，公开与否在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见
-# THIRD_PARTY_NOTICES.md。构建缓存放在同一个包的 buildcache 标签。
+# 打 v* 标签时自动构建，也可以手动触发。标签：sha-<提交号前 12 位>；打 v* 标签时再加上版本号和 latest（latest 跟着最新的
+# 正式版本，要指回别的版本用 promote.yml）。包第一次推送时默认私有，公开与否在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL
+# 的二进制库，许可见 THIRD_PARTY_NOTICES.md。构建缓存放在同一个包的 buildcache 标签。
 #
 # GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，构建前先删掉构建机预装、这里用不到
 # 的大件。
@@ -48,9 +48,7 @@ jobs:
           echo "image=${image}" >> "$GITHUB_OUTPUT"
           tags="${image}:sha-${GITHUB_SHA::12}"
           if [ "${{ github.event_name }}" = push ]; then
-            tags="${tags},${image}:${GITHUB_REF_NAME}"
-          elif [ "${GITHUB_REF_NAME}" = main ]; then
-            tags="${tags},${image}:latest"
+            tags="${tags},${image}:${GITHUB_REF_NAME},${image}:latest"
           fi
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
 
