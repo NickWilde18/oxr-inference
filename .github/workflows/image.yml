@@ -1,6 +1,7 @@
 # 构建镜像，推到运行这个 workflow 的仓库对应的 GHCR（ghcr.io/<所有者>/<仓库名>，fork 里就是 fork 主人自己的）。
 # 标签：sha-<提交号前 12 位>；打 v* 标签时加上版本号，从 main 手动构建时加上 latest。包第一次推送时默认私有，公开与否
 # 在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见 THIRD_PARTY_NOTICES.md。
+# 构建缓存放在同一个包的 buildcache 标签（registry 缓存，所有构建都读，推送的构建才写）。
 #
 # 打 v* 标签时构建并推送；手动触发时可以选只构建不推（用来看构建机磁盘够不够）。
 # GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，所以构建前先删掉
@@ -75,6 +76,10 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=Apache-2.0 AND LicenseRef-OXR
           provenance: false
+          # mode=max 连中间层（下载权重那一阶段）一起存。没改到的层直接复用，推出去的镜像和上一版共用这些层，
+          # 节点升级时只拉变了的几层。fork 里还没有缓存时只是读不到，构建照常。
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: ${{ (github.event_name == 'push' || inputs.push) && format('type=registry,ref={0}:buildcache,mode=max', env.IMAGE) || '' }}
 
       - name: Image size
         if: github.event_name != 'push' && !inputs.push
