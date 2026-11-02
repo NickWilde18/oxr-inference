@@ -1,6 +1,6 @@
 # 构建镜像，推到运行这个 workflow 的仓库对应的 GHCR（ghcr.io/<所有者>/<仓库名>，fork 里就是 fork 主人自己的）。
 # 只为 v* 标签构建：推标签时自动跑，也可以在某个 v* 标签上手动触发（发版构建失败、要换权重来源时重跑）。镜像标签是
-# 版本号和 latest（latest 跟着最新的正式版本；在旧标签上重跑会把 latest 指回去，之后用 promote.yml 指正）。包第一次推送
+# 版本号和 latest（latest 跟着最新的正式版本；在旧标签上重跑会把 latest 指回那个版本）。包第一次推送
 # 时默认私有，公开与否在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见 THIRD_PARTY_NOTICES.md。构建缓存
 # 放在同一个包的 buildcache 标签。
 #
