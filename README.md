@@ -167,8 +167,8 @@ SGLang, which install the same package, ours ships it under NVIDIA's own license
 To build your own image instead:
 
 - **With GitHub Actions**, no build machine needed: fork this repository, enable workflows on your fork's Actions page,
-  and run the "Image" workflow with "Push to GHCR" checked. The image is pushed to
-  `ghcr.io/<your-username>/oxr-inference`; the package is private when first pushed. If ModelScope is unreachable, set
+  and run the "Image" workflow. The image is pushed to `ghcr.io/<your-username>/oxr-inference`; the package is
+  private when first pushed. If ModelScope is unreachable, set
   `weights_base_url` to `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`.
 - **Locally**:
 

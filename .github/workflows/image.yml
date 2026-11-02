@@ -1,11 +1,10 @@
 # 构建镜像，推到运行这个 workflow 的仓库对应的 GHCR（ghcr.io/<所有者>/<仓库名>，fork 里就是 fork 主人自己的）。
-# 标签：sha-<提交号前 12 位>；打 v* 标签时加上版本号，从 main 手动构建时加上 latest。包第一次推送时默认私有，公开与否
-# 在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见 THIRD_PARTY_NOTICES.md。
-# 构建缓存放在同一个包的 buildcache 标签（registry 缓存，所有构建都读，推送的构建才写）。
+# 打 v* 标签时自动构建，也可以手动触发。标签：sha-<提交号前 12 位>；打 v* 标签时加上版本号，从 main 手动构建时加上
+# latest。包第一次推送时默认私有，公开与否在 GitHub 上设；镜像里有 NVIDIA CUTLASS DSL 的二进制库，许可见
+# THIRD_PARTY_NOTICES.md。构建缓存放在同一个包的 buildcache 标签。
 #
-# 打 v* 标签时构建并推送；手动触发时可以选只构建不推（用来看构建机磁盘够不够）。
-# GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，所以构建前先删掉
-# 构建机预装、这里用不到的大件，并在前后各打一次 df，磁盘不够时日志里看得出差多少。
+# GitHub 托管的构建机只保证 14 GB 磁盘，镜像里光 torch 和 CUDA 库加权重就有好几 GB，构建前先删掉构建机预装、这里用不到
+# 的大件。
 name: Image
 
 on:
@@ -13,10 +12,6 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      push:
-        description: Push to GHCR
-        type: boolean
-        default: false
       weights_base_url:
         description: Weights download base URL. Leave empty for the default (ModelScope); if ModelScope is unreachable, use https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/
         type: string
@@ -35,15 +30,12 @@ jobs:
 
       - name: Free disk space
         run: |
-          df -h /
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           sudo docker image prune --all --force
-          df -h /
 
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
-        if: github.event_name == 'push' || inputs.push
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -53,7 +45,7 @@ jobs:
         id: tags
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"  # GHCR 的名字要小写
-          echo "IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
           tags="${image}:sha-${GITHUB_SHA::12}"
           if [ "${{ github.event_name }}" = push ]; then
             tags="${tags},${image}:${GITHUB_REF_NAME}"
@@ -65,9 +57,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name == 'push' || inputs.push }}
-          # 只构建不推时把镜像装进构建机的 docker，好报镜像大小（多占一份镜像大小的磁盘）。
-          load: ${{ github.event_name != 'push' && !inputs.push }}
+          push: true
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             WEIGHTS_BASE_URL=${{ inputs.weights_base_url }}
@@ -78,13 +68,5 @@ jobs:
           provenance: false
           # mode=max 连中间层（下载权重那一阶段）一起存。没改到的层直接复用，推出去的镜像和上一版共用这些层，
           # 节点升级时只拉变了的几层。fork 里还没有缓存时只是读不到，构建照常。
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
-          cache-to: ${{ (github.event_name == 'push' || inputs.push) && format('type=registry,ref={0}:buildcache,mode=max', env.IMAGE) || '' }}
-
-      - name: Image size
-        if: github.event_name != 'push' && !inputs.push
-        run: docker image ls "${IMAGE}"
-
-      - name: Disk after build
-        if: always()
-        run: df -h /
+          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache,mode=max

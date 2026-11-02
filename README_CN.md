@@ -135,8 +135,8 @@ docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1
 
 想自己构建的话：
 
-- **用 GitHub Actions**，不用自己准备构建机：fork 本仓库，在 fork 的 Actions 页面启用 workflow，手动运行「Image」，勾上
-  「Push to GHCR」。镜像推到 `ghcr.io/<你的用户名>/oxr-inference`，包第一次推送时默认私有。ModelScope 不通时，
+- **用 GitHub Actions**，不用自己准备构建机：fork 本仓库，在 fork 的 Actions 页面启用 workflow，手动运行「Image」。
+  镜像推到 `ghcr.io/<你的用户名>/oxr-inference`，包第一次推送时默认私有。ModelScope 不通时，
   `weights_base_url` 填 `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`。
 - **在本机构建**：
 
