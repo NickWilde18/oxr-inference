@@ -153,8 +153,7 @@ CPU-bound), so per-page load was spread over several client processes: 2 × 8 an
 
 ## Quick start
 
-Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, `latest` is the newest release, and
-`sha-<commit>` tags pin a single build.
+Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, and `latest` is the newest release.
 
 ```bash
 docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024
@@ -167,9 +166,10 @@ SGLang, which install the same package, ours ships it under NVIDIA's own license
 To build your own image instead:
 
 - **With GitHub Actions**, no build machine needed: fork this repository, enable workflows on your fork's Actions page,
-  and run the "Image" workflow. The image is pushed to `ghcr.io/<your-username>/oxr-inference`; the package is
-  private when first pushed. If ModelScope is unreachable, set
-  `weights_base_url` to `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`.
+  and push a tag starting with `v` (for example `v1.0.0`) to your fork. The "Image" workflow pushes the image to
+  `ghcr.io/<your-username>/oxr-inference` with that tag and `latest`; the package is private when first pushed. If
+  ModelScope is unreachable, run the workflow manually on that tag with `weights_base_url` set to
+  `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`.
 - **Locally**:
 
   ```bash

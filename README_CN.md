@@ -124,7 +124,7 @@ Service 发过来。
 
 ## 快速开始
 
-构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 是最新的正式版本，`sha-<提交号>` 标签对应某一次构建。
+构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 是最新的正式版本。
 
 ```bash
 docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024
@@ -135,9 +135,10 @@ docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1
 
 想自己构建的话：
 
-- **用 GitHub Actions**，不用自己准备构建机：fork 本仓库，在 fork 的 Actions 页面启用 workflow，手动运行「Image」。
-  镜像推到 `ghcr.io/<你的用户名>/oxr-inference`，包第一次推送时默认私有。ModelScope 不通时，
-  `weights_base_url` 填 `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`。
+- **用 GitHub Actions**，不用自己准备构建机：fork 本仓库，在 fork 的 Actions 页面启用 workflow，往 fork 推一个 `v` 开头
+  的标签（比如 `v1.0.0`）。「Image」构建流程会把镜像推到 `ghcr.io/<你的用户名>/oxr-inference`，打上这个标签和 `latest`，
+  包第一次推送时默认私有。ModelScope 不通时，在这个标签上手动运行构建流程，`weights_base_url` 填
+  `https://huggingface.co/SoMarkAI/OXR-1.0/resolve/main/`。
 - **在本机构建**：
 
   ```bash
