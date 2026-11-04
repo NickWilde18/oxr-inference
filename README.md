@@ -170,6 +170,29 @@ requests sent from a separate pod through the Service.
 A single Python load-generator process tops out around 4 pages/s at 64 concurrent requests (the client itself becomes
 CPU-bound), so per-page load was spread over several client processes: 2 × 8 and 4 × 16 concurrent requests.
 
+### Block-level API
+
+Measured on the production deployment (one H200, v1.1.0, `--kv-gb 80 --max-running 1024`), page images rendered by
+OXR's own code and sent as PNG; three public samples: the arXiv paper 1706.03762 (15 pages), a scanned *Shiji*
+(10 pages), a Chinese textbook (15 pages).
+
+| | arXiv | *Shiji* scan | Textbook |
+|---|---|---|---|
+| `/v1/layout/sync`, per-page latency (median) | 0.22 s | 0.20 s | 0.27 s |
+| of which layout detection / reading order (median) | 36 / 146 ms | 34 / 118 ms | 35 / 197 ms |
+| `/v1/layout/sync`, pages/s at 16 / 64 concurrent | 17.4 / 26.5 | 35.1 / 30.8 | 24.7 / 25.2 |
+| Layout blocks vs `/v1/parse/sync` final blocks (boxes identical) | 189 / 189 | 52 / 51 | 410 / 404 |
+| `/v1/recognize/sync` content identical to `/v1/parse/sync`, same block | 182 / 184 | 50 / 50 | 393 / 398 |
+| pages/s at 16 concurrent: `/v1/parse/sync` | 6.2 | 6.9 | 5.9 |
+| layout + recognize every block | 6.0 | 7.0 | 5.9 |
+| layout + recognize only formulas, tables, code | **8.8** (12 of 184 blocks) | **25.4** (0 of 51) | **12.0** (111 of 404) |
+
+- Most of `/v1/layout/sync`'s time is the reading-order call to the recognition model, not layout detection.
+- Extra layout blocks are the ones `/v1/parse/sync` removes after recognition as duplicates.
+- The differing recognized blocks are run-to-run variation also seen between two `/v1/parse/sync` runs (author marks
+  `†`/`‡`, the page-4 block where OXR-1.0 keeps writing), or full-/half-width punctuation and spaces next to Latin
+  text; batching differs between the two paths, and batch composition changes greedy outputs by about 0.7%.
+
 ## Quick start
 
 Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, and `latest` is the newest release.
