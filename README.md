@@ -15,6 +15,25 @@ the official OXR deployment runs at 1.4–2.2 pages/s.
 > This is not an official SoMark project. OXR and OXR-1.0 are released by SoMark Team; this project is a derivative
 > work of OXR and is subject to the same additional terms. See [License](#license).
 
+## Highlights
+
+Compared with the official OXR deployment (OXR's API + vLLM + a layout-detection service):
+
+- ⭐ **Much higher throughput**: about 8 pages/s for the full pipeline on one H200, versus 1.4–2.2 pages/s for the official
+  deployment measured the same way ([Performance](#performance)).
+- ⭐ **No vLLM**: recognition inference is written from scratch (continuous batching, paged KV cache, CUDA Graphs,
+  fused kernels), with accuracy matching the official vLLM deployment.
+- ⭐ **One process owns the GPU**: recognition and layout detection share one GPU process; memory is reserved and
+  checked once at startup, so allocations don't fail halfway through a document.
+- ⭐ **Multiple processes**: official `oxr serve` only allows 1 process (async tasks live in memory); here 4 pipeline
+  processes run by default and share async tasks.
+- ⭐ **Bounded under overload, no hangs on failure**: full queues reply busy or 503; if the GPU process dies the server
+  exits for the container to restart, and in-flight requests fail immediately.
+- ⭐ **Block-level API**: besides the official `/v1/parse/sync`, you can run layout only (`/v1/layout/sync`) or recognize
+  only the blocks you pass (`/v1/recognize/sync`), e.g. send just formulas, tables and code
+  ([Block-level API](#block-level-api)).
+- ⭐ **Same API**: `/v1/parse/sync` and the other official endpoints are unchanged; callers don't need to change.
+
 ## Why
 
 The official OXR deployment is three services: OXR's API and pipeline, vLLM (running the recognition model through
