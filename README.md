@@ -156,7 +156,7 @@ CPU-bound), so per-page load was spread over several client processes: 2 × 8 an
 Prebuilt images are on GHCR: version tags such as `v1.0.0` are releases, and `latest` is the newest release.
 
 ```bash
-docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024
+docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.1.0 --kv-gb 80 --max-running 1024
 ```
 
 The image contains NVIDIA CUTLASS DSL, which flash-attn 4 uses to compile kernels. Like the public images of vLLM and
@@ -189,6 +189,46 @@ curl -F file=@paper.pdf -F api_key=any -F output_formats=json http://127.0.0.1:8
 ```
 
 `api_key` is a field OXR's API requires; neither OXR nor this project checks its value.
+
+### Block-level API
+
+Besides OXR's own endpoints, the server has two endpoints that split `/v1/parse/sync` in two, for callers that only
+need part of the pipeline (for example, a PDF page with a text layer: text blocks can be read from the text layer, so
+only formulas, tables and code need recognition). Both call OXR's own functions, so their results are the same as
+`/v1/parse/sync` at the same step. Request format and error codes are the same as `/v1/parse/sync` (multipart form,
+`api_key` required but not checked, 1133 for invalid parameters, 1137 for processing failures).
+
+**`POST /v1/layout/sync`**: layout only. `file` is an image or a PDF (rendered by OXR's own code; boxes are pixel
+coordinates on that page image); `feature_config` has the same `keep_header_footer` as `/v1/parse/sync`. Returns each
+page's blocks in reading order (`idx` is the position in the reading order):
+
+```bash
+curl -F file=@page.png -F api_key=any http://127.0.0.1:8000/v1/layout/sync
+# {"code": 0, "data": {"result": {"pages": [{"page_num": 0, "page_size": {"w": 1241, "h": 1754},
+#   "blocks": [{"idx": 0, "type": "Title", "bbox": [x1, y1, x2, y2], "score": 0.97}, ...]}]},
+#   "metadata": {"layout_time_ms": ..., "reading_order_time_ms": ...}}}
+```
+
+OXR's layout model doesn't give a reading order; OXR asks the recognition model for it, once per page (a short output,
+a few tokens per block). This endpoint does the same, so each page still makes one recognition-model call. Blocks are
+the ones before recognition: after recognizing, `/v1/parse/sync` also removes blocks whose recognized text duplicates
+another block's, which can't be done without the text, so this endpoint may return a few more blocks.
+
+**`POST /v1/recognize/sync`**: recognize the given blocks only. `file` is one page (an image, or a one-page PDF);
+`blocks` is a JSON array of `{"type": ..., "bbox": [x1, y1, x2, y2]}` in that page's pixel coordinates (as returned by
+`/v1/layout/sync`); `extra` and `element_formats` mean the same as in `/v1/parse/sync`. Each block goes through OXR's
+own per-block recognition: same crop, same prompt for its type, the same retries when the output hits the length
+limit, the same post-processing; formula numbers are folded into the formula as in `/v1/parse/sync`'s JSON. Results
+come back in request order (`idx` is the index in the request), without the cross-block cleanup. `Picture` blocks
+aren't recognized; crop them yourself (a request with one is rejected).
+
+```bash
+curl -F file=@page.png -F api_key=any \
+  -F 'blocks=[{"type":"Table","bbox":[90,410,1150,820]},{"type":"Formula","bbox":[300,900,940,980]}]' \
+  http://127.0.0.1:8000/v1/recognize/sync
+# {"code": 0, "data": {"result": {"blocks": [{"idx": 0, "type": "Table", "bbox": [...], "content": "<table>...",
+#   "format": "html"}, {"idx": 1, "type": "Formula", ..., "format": "latex"}]}}}
+```
 
 Without Docker:
 
@@ -240,6 +280,7 @@ Already set in the image.
 | `oxr_runtime/worker.py` | Pipeline process: OXR's API and pipeline, with the recognition and layout calls sent to the GPU process |
 | `oxr_runtime/ipc.py` | Communication between pipeline processes and the GPU process (local Unix socket, arrays sent as raw bytes) |
 | `oxr_runtime/tasks.py` | Async-task store shared by all pipeline processes |
+| `oxr_runtime/blocks.py` | Block-level endpoints: `/v1/layout/sync` (layout and reading order only) and `/v1/recognize/sync` (recognize given blocks only) |
 | `oxr_runtime/engine.py` | Inference engine: continuous batching, two threads and two streams, preemption and recompute when the KV cache runs out, repetition early stop, speculative decoding, cancellation, warm-up |
 | `oxr_runtime/vision.py` | Vision encoder (SigLIP2-NaViT) and vision vocabulary head |
 | `oxr_runtime/language.py` | Language model (Qwen3 architecture): prefill, decode and speculative-verification forward passes |

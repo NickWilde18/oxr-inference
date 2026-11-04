@@ -127,7 +127,7 @@ Service 发过来。
 构建好的镜像在 GHCR 上：`v1.0.0` 这类版本标签是正式版本，`latest` 是最新的正式版本。
 
 ```bash
-docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.0.0 --kv-gb 80 --max-running 1024
+docker run --gpus '"device=0"' -p 8000:8000 ghcr.io/nickwilde18/oxr-inference:v1.1.0 --kv-gb 80 --max-running 1024
 ```
 
 镜像里带着 NVIDIA CUTLASS DSL（flash-attn 4 编译 kernel 要用）。和 vLLM、SGLang 的公开镜像一样（它们装的是同一个包），
@@ -157,6 +157,41 @@ curl -F file=@paper.pdf -F api_key=any -F output_formats=json http://127.0.0.1:8
 ```
 
 `api_key` 是 OXR 的接口要求带的字段，OXR 和本项目都不校验它的值。
+
+### 按块的接口
+
+除了 OXR 自己的接口，服务还有两个接口，把 `/v1/parse/sync` 拆成两段，给只要其中一部分的调用方用（比如有文字层的
+PDF 页：文字类块的字可以从文字层取，只有公式、表格、代码要识别）。两个接口都直接调 OXR 自己的函数，结果和
+`/v1/parse/sync` 走到同一步时相同。请求格式、错误码和 `/v1/parse/sync` 一样（multipart 表单、`api_key` 必填但不校验、
+参数错误 1133、处理失败 1137）。
+
+**`POST /v1/layout/sync`**：只做版面。`file` 是图片或 PDF（PDF 按 OXR 自己的渲染转成页图，框是那张页图上的像素坐标）；
+`feature_config` 里的 `keep_header_footer` 和 `/v1/parse/sync` 同义。回每页的块，按阅读顺序排好（`idx` 是阅读顺序里的位置）：
+
+```bash
+curl -F file=@page.png -F api_key=any http://127.0.0.1:8000/v1/layout/sync
+# {"code": 0, "data": {"result": {"pages": [{"page_num": 0, "page_size": {"w": 1241, "h": 1754},
+#   "blocks": [{"idx": 0, "type": "Title", "bbox": [x1, y1, x2, y2], "score": 0.97}, ...]}]},
+#   "metadata": {"layout_time_ms": ..., "reading_order_time_ms": ...}}}
+```
+
+OXR 的版面模型不给阅读顺序，OXR 是每页调一次识别模型算的（输出很短，每块几个 token）。这个接口照样做，所以每页仍
+有一次识别模型调用。回的是识别之前的块：`/v1/parse/sync` 识别完还会按识别出的字删掉重复的块，没有字做不了，所以这里
+可能比 `/v1/parse/sync` 多几块。
+
+**`POST /v1/recognize/sync`**：只识别指定的块。`file` 是一页（图片，或只有一页的 PDF）；`blocks` 是 JSON 数组，每项
+`{"type": ..., "bbox": [x1, y1, x2, y2]}`，是这一页上的像素坐标（和 `/v1/layout/sync` 回的一样）；`extra`、
+`element_formats` 和 `/v1/parse/sync` 同义。每块都走 OXR 自己的逐块识别：裁图、按类型选的提示词、输出到长度上限时的
+重试、后处理都一样；公式编号像 `/v1/parse/sync` 的 JSON 那样并进公式。结果按请求的顺序回（`idx` 是请求里的下标），
+不做跨块清理。`Picture` 块不识别，调用方自己裁图（请求里带了直接报参数错误）。
+
+```bash
+curl -F file=@page.png -F api_key=any \
+  -F 'blocks=[{"type":"Table","bbox":[90,410,1150,820]},{"type":"Formula","bbox":[300,900,940,980]}]' \
+  http://127.0.0.1:8000/v1/recognize/sync
+# {"code": 0, "data": {"result": {"blocks": [{"idx": 0, "type": "Table", "bbox": [...], "content": "<table>...",
+#   "format": "html"}, {"idx": 1, "type": "Formula", ..., "format": "latex"}]}}}
+```
 
 不用镜像时：
 
@@ -208,6 +243,7 @@ Triton 第一次编 kernel 时要用 gcc。
 | `oxr_runtime/worker.py` | 流程进程：OXR 的接口和流程，调识别和版面检测的地方换成发给 GPU 进程 |
 | `oxr_runtime/ipc.py` | 流程进程和 GPU 进程之间的通信（本机 Unix 套接字，数组按原始字节传） |
 | `oxr_runtime/tasks.py` | 所有流程进程共用的异步任务存储 |
+| `oxr_runtime/blocks.py` | 按块的接口：`/v1/layout/sync`（只做版面和阅读顺序）、`/v1/recognize/sync`（只识别指定的块） |
 | `oxr_runtime/engine.py` | 推理引擎：连续批处理、两个线程两条流、KV 不够时挤出重算、复读提前停、投机解码、取消、预热 |
 | `oxr_runtime/vision.py` | 视觉编码器（SigLIP2-NaViT）和视觉词表头 |
 | `oxr_runtime/language.py` | 语言模型（Qwen3 结构）：prefill、逐字生成、投机验证三种前向 |

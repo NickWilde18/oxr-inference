@@ -147,9 +147,15 @@ def _oxr_app() -> Any:
     """导入 OXR 的服务（``oxr.server.app``）。OXR 源码要已经在 ``sys.path`` 里。
 
     异步接口的任务存到 ``OXR_RUNTIME_TASK_DIR``（:class:`~oxr_runtime.tasks.SharedTaskStore`，所有流程进程共用），
-    换掉 OXR 存在进程内存里的那一份。OXR 在服务启动时才创建任务存储，这里换的是它要创建的类。"""
+    换掉 OXR 存在进程内存里的那一份。OXR 在服务启动时才创建任务存储，这里换的是它要创建的类。
+
+    另外挂上按块的两个接口（:mod:`oxr_runtime.blocks`：``/v1/layout/sync``、``/v1/recognize/sync``）。"""
+    from oxr_runtime import blocks
+
     module = importlib.import_module("oxr.server.app")
     module.MemoryTaskStore = functools.partial(tasks.SharedTaskStore, Path(os.environ["OXR_RUNTIME_TASK_DIR"]))
+    if not any(getattr(route, "path", None) == "/v1/layout/sync" for route in module.app.routes):
+        module.app.include_router(blocks.router, prefix="/v1")
     return module.app
 
 
